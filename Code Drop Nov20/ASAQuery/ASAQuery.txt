@@ -1,0 +1,39 @@
+/* Flattened Alert into SQL Table */
+WITH FlatAlert AS (  
+   SELECT
+ [Alert].[gatewayId] AS [GatewayID], 
+ [Alert].[message_type] AS [Messagetype],
+ [Alert].[current_latitude] AS [LocationLattitude],
+ [Alert].[current_longitude] AS [LocationLongitude],
+ [Alert].[current_system_time] AS [CURRENTSYSTEMTIME],
+ [Alert].[current_gps_time] AS [AlertDatetime],
+
+ [Alert].[SensorData].[sensorID] AS [BeaconID],
+ [Alert].[SensorData].[temperature] AS [Temperature],
+ [Alert].[SensorData].[humidity] AS [Humidity],
+ [Alert].[SensorData].[humidity_alert] AS [HumidityAlert],
+ [Alert].[SensorData].[shock_alert] AS [ShockAlert],
+ [Alert].[SensorData].[tamper_alert] AS [TamperAlert],
+ [Alert].[SensorData].[temperature_alert] AS [TemperatureAlert]
+  FROM
+(
+ SELECT
+ e.*,
+ [SensorValues].[ArrayValue] AS [SensorData]
+ FROM CCTitanTelemetry AS e
+ CROSS APPLY GetArrayElements(e.sensor_Values) AS [SensorValues]
+ WHERE (e.message_type ='Alert')  
+) AS Alert
+)  
+SELECT GatewayID,BeaconID,Temperature,Humidity,ShockAlert,TamperAlert,TemperatureAlert,
+HumidityAlert,LocationLattitude,LocationLongitude,'Raw' as Status, AlertDatetime,currentsystemtime
+INTO CCTitanSQLAlert 
+FROM FlatAlert 
+WHERE HumidityAlert=1 OR ShockAlert=1 OR TamperAlert=1 OR TemperatureAlert=1
+
+/* Heart Beat CosmosDB */
+SELECT * INTO CCTitanCosmosHeartBeat FROM CCTitanTelemetry WHERE message_type='HeartBeat'
+/* Alert CosmosDB */
+SELECT * INTO CCTitanCosmosAlert FROM CCTitanTelemetry WHERE message_type='Alert'
+/* Alert Telemetry */
+SELECT * INTO CCTitanCosmosTelemetry FROM CCTitanTelemetry WHERE message_type='Telemetry'
